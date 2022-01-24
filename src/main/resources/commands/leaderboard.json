@@ -1,0 +1,51 @@
+{
+  "name": "leaderboard",
+  "description": "displays leaderboard based on chosen metric",
+
+  "options": [
+    {
+      "name": "mode",
+      "description": "The game mode",
+      "type": 3,
+      "required": true,
+      "choices": [
+        {
+          "name": "doubleup",
+          "value": "pairs"
+        },
+        {
+          "name": "normal",
+          "value": "standard"
+        },
+        {
+          "name": "all",
+          "value": "all"
+        }
+      ]
+    },
+    {
+      "name": "amount",
+      "description": "number of games to be included (don't include if all time)",
+      "type": 4,
+      "required": true
+    },
+    {
+      "name": "sortby",
+      "description": "Leaderboard ranking",
+      "type": 3,
+      "required": true,
+      "choices": [
+        {
+          "name": "placement",
+          "value": "placement"
+        },
+
+        {
+          "name": "wins",
+          "value": "wins"
+        }
+      ]
+    }
+  ]
+
+}

@@ -1,0 +1,19 @@
+{
+  "name": "addplayer",
+  "description": "Adds player to leaderboard",
+  "options": [
+    {
+      "name": "username",
+
+      "description": "username of player",
+      "type": 3,
+      "required": true
+    },
+    {
+      "name": "discorduser",
+      "description": "username of player to be linked",
+      "type": 9,
+      "required": true
+    }
+  ]
+}

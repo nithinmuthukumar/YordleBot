@@ -1,0 +1,15 @@
+{
+  "name": "registerchannel",
+  "description": "Posts updates to channel",
+  "options": [
+    {
+      "name": "channel",
+
+      "description": "channel to be registered",
+
+      "type": 7,
+      "required": true
+    }
+
+  ]
+}
