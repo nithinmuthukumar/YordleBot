@@ -1,0 +1,28 @@
+{
+  "name": "games",
+  "description": "Show total number of games each user has played",
+
+  "options": [
+    {
+      "name": "mode",
+      "description": "The game mode",
+      "type": 3,
+      "required": true,
+      "choices": [
+        {
+          "name": "doubleup",
+          "value": "pairs"
+        },
+        {
+          "name": "normal",
+          "value": "standard"
+        },
+        {
+          "name": "all",
+          "value": "all"
+        }
+      ]
+    }
+  ]
+
+}

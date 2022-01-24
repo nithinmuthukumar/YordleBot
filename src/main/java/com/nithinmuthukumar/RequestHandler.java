@@ -70,7 +70,6 @@ public class RequestHandler {
     public static Mono<String> sendRequest(String url){
         return client.headers(h ->h.add("Content-Type","application/json").add("X-Riot-Token",riotKey)).get().uri(url)
                 .responseSingle((status,res)-> {
-                    System.out.println(status.responseHeaders());
                     if(!status.status().equals(HttpResponseStatus.OK)){
                         System.out.println(status.status());
                         System.out.println("RateLimited");

@@ -31,16 +31,7 @@ import java.util.stream.Collectors;
 
 import static com.mongodb.client.model.Filters.*;
 
-/**
- * TODO
- * removeplayer
- * addplayer
- * leaderboard
- * count
- * mostrecent
- * placement_rate
- * wins
- */
+
 public class YordleBot {
     public static void main(String[] args) {
         // Replace the uri string with your MongoDB deployment's connection string
@@ -51,7 +42,6 @@ public class YordleBot {
         MongoCollection<Document> matchCollection = database.getCollection("matches");
         MongoCollection<Document> serverCollection = database.getCollection("servers");
 //        Document doc = collection.find(eq("username", "popoplolj")).first();
-//        System.out.println(doc.toJson());
 
 
 
@@ -61,7 +51,6 @@ public class YordleBot {
         GatewayDiscordClient client = setupClient();
         Flux.interval(Duration.ofMinutes(10))
                 .flatMap(ignore->{
-                    System.out.println("updating");
                     updateData(client,userCollection,matchCollection,serverCollection);
                     return Mono.empty();
 
@@ -72,8 +61,12 @@ public class YordleBot {
 
 
 
-            System.out.println(event.getCommandName());
             try {
+                String mode;
+                List<Document> rankedUsers;
+                Map<Document, Map<String,Double>> stats;
+                EmbedCreateSpec.Builder embed;
+
 
                 switch (event.getCommandName()) {
                     case "addplayer":
@@ -105,17 +98,51 @@ public class YordleBot {
 
 
                         return event.editReply(String.format("Username was added to leaderboard <@%s> ", snowflake.asString())).then();
+                    case "games":
+                        event.deferReply().block();
 
+                        updateData(client,userCollection,matchCollection,serverCollection);
+                        mode = event.getOption("mode")
+                                .flatMap(ApplicationCommandInteractionOption::getValue)
+                                .map(ApplicationCommandInteractionOptionValue::asString).get();
+                        stats = new HashMap<>();
+
+                        for(Document user : userCollection.find()){
+                            stats.put(user,getStats(1000,user,mode,matchCollection));
+
+                        }
+                        rankedUsers = stats.keySet().stream()
+                                .sorted(Comparator.comparingDouble(u-> -stats.get(u)
+                                        .get("games"))).collect(Collectors.toList());
+                        embed = EmbedCreateSpec.builder()
+                                .color(Color.GRAY)
+                                .title("Leaderboard")
+                                .description(String.format("Games Played"))
+
+                                //.addAllFields(users)
+                                .timestamp(Instant.now());
+
+                        for (int i =0;i<rankedUsers.size();i++) {
+                            Document user = rankedUsers.get(i);
+                            double val=0;
+
+                            embed.addField(String.format("%d. %s: %.0f",i+1,user.getString("username"),
+                                            stats.get(user).get("games")),
+                                    "\u200b", false);
+
+
+
+                        }
+                        return event.editReply().withEmbeds(embed.build()).then();
 
 
 
                     case "leaderboard":
                         event.deferReply().block();
                         updateData(client, userCollection, matchCollection, serverCollection);
-                        String mode = event.getOption("mode")
+                        mode = event.getOption("mode")
                                 .flatMap(ApplicationCommandInteractionOption::getValue)
                                 .map(ApplicationCommandInteractionOptionValue::asString).get();
-                        System.out.println(mode);
 
                         Double amount = Double.parseDouble(event.getOption("amount")
                                 .flatMap(ApplicationCommandInteractionOption::getValue)
@@ -123,19 +150,19 @@ public class YordleBot {
                         String sortBy = event.getOption("sortby")
                                 .flatMap(ApplicationCommandInteractionOption::getValue)
                                 .map(ApplicationCommandInteractionOptionValue::asString).orElse("placement");
-                        Map<Document, Map<String,Double>> stats = new HashMap<>();
+                        stats = new HashMap<>();
 
                         for(Document user : userCollection.find()){
                             stats.put(user,getStats(amount,user,mode,matchCollection));
 
                         }
-                        List<Document> rankedUsers = stats.keySet().stream().sorted(Comparator.comparingDouble(u->{
+                        rankedUsers = stats.keySet().stream().sorted(Comparator.comparingDouble(u->{
                             switch (sortBy){
                                 case "placement":
                                     return stats.get(u).get("placement")/stats.get(u).get("games");
 
                                 case "wins":
-                                    return stats.get(u).get("wins")/stats.get(u).get("games");
+                                    return -stats.get(u).get("wins")/stats.get(u).get("games");
 
 
                             }
@@ -151,51 +178,32 @@ public class YordleBot {
 
 
 
-                        EmbedCreateSpec.Builder embed = EmbedCreateSpec.builder()
+                        embed = EmbedCreateSpec.builder()
                                 .color(Color.GRAY)
                                 .title("Leaderboard")
                                 .description(String.format("Last %d\n%s",amount.intValue(),sortBy))
 
                                 //.addAllFields(users)
                                 .timestamp(Instant.now());
-                        String format = "%-20s%-8.1f%-8.1f%-8.0f";
-
-
-                        embed.addField("Name        Placement    Wins    Games","\u200b",false);
 
                         for (int i =0;i<rankedUsers.size();i++) {
                             Document user = rankedUsers.get(i);
-                            StringBuilder builder = new StringBuilder();
-                            builder.append(i+1+". ");
+                            double val=0;
+                            if(sortBy.equals("placement")){
+                                val = stats.get(user).get("placement")/stats.get(user).get("games");
 
-                            builder.append(user.getString("username"));
-                            for(int s = 0;s<20-user.getString("username").length();s++){
-                                builder.append(" ");
+
 
                             }
-                            builder.append(stats.get(user).get("placement")/stats.get(user).get("games"));
-                            for(int s = 0;s<60-builder.length();s++){
-                                builder.append(" ");
-
+                            else if(sortBy.equals("wins")){
+                                val = stats.get(user).get("wins");
                             }
-                            builder.append(stats.get(user).get("wins"));
-                            for(int s = 0;s<70-builder.length();s++){
-                                builder.append(" ");
-
-                            }
-                            builder.append(stats.get(user).get("games"));
-                            for(int s = 0;s<80-builder.length();s++){
-                                builder.append(" ");
-
-                            }
+                            embed.addField(String.format("%d. %s: %.2f",i+1,user.getString("username"),
+                                            val),
+                                    "\u200b", false);
 
 
 
-
-
-
-
-                            embed.addField(builder.toString(),"\u200b", false);
                         }
 
 
@@ -253,7 +261,6 @@ public class YordleBot {
             new GlobalCommandRegistrar(client.getRestClient()).registerCommands();
         } catch (Exception e) {
             //Handle exception
-            System.out.println(e);
         }
 
         client.getEventDispatcher().on(ReadyEvent.class)
@@ -292,8 +299,11 @@ public class YordleBot {
 
                                 for (Document server : serverCollection.find()) {
                                     //TODO ucomment
-//                                    client.getChannelById(Snowflake.of(server.getString("channel_id"))).ofType(MessageChannel.class)
-//                                            .flatMap(messageChannel -> messageChannel.createMessage(matchId+ " has concluded")).subscribe();
+                                    client.getChannelById(Snowflake.of(server.getString("channel_id"))).ofType(MessageChannel.class)
+                                            .flatMap(messageChannel -> {
+
+                                                return messageChannel.createMessage("a game with "+user.getString("username")+" has concluded");
+                                            }).subscribe();
 
 
                                 }
@@ -309,7 +319,6 @@ public class YordleBot {
 
                             }catch (Exception e){
 
-                                System.out.println("OOOOO "+m );
                                 e.printStackTrace();
 
                             }
@@ -344,8 +353,6 @@ public class YordleBot {
         Map<String,Double> stats = new HashMap<>();
 //        List<String> matches = user.getList("match_history",String.class).subList(0,(int)amount);
         List<String> matches = user.getList("match_history",String.class);
-        System.out.println(user.getString("username"));
-        System.out.println(matches);
         double placementTotal=0;
         double firsts = 0;
         double games = 0;
@@ -355,7 +362,6 @@ public class YordleBot {
             if(amount==0){
                 break;
             }
-            System.out.println(matchId);
 
             Document info = data.get("info",Document.class);
             String gameType = info.getString("tft_game_type");
@@ -366,7 +372,6 @@ public class YordleBot {
 
             for(Document participant:info.getList("participants",Document.class)){
                 if(participant.getString("puuid").equals(user.getString("puuid"))){
-                    System.out.println("match_id "+data.getString("match_id"));
 
                     int placement=participant.getInteger("placement");
                     if(placement==1){
