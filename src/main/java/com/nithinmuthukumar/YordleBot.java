@@ -294,15 +294,16 @@ public class YordleBot {
 
                             }
                             if (matchCollection.countDocuments(eq("match_id", matchId)) == 0) {
-                                RequestHandler.getMatchData(matchId).map(matchData -> matchCollection.insertOne(matchData)).delayElement(Duration.ofMillis(2000)).subscribe();
+                                RequestHandler.getMatchData(matchId).map(matchData -> matchCollection.insertOne(matchData)).subscribe();
 
 
                                 for (Document server : serverCollection.find()) {
                                     //TODO ucomment
-                                    client.getChannelById(Snowflake.of(server.getString("channel_id"))).ofType(MessageChannel.class)
+                                    client.getGuildById(Snowflake.of(server.getString("guild_id")))
+                                            .map(s -> s.getChannelById(Snowflake.of(server.getString("channel_id"))))
+                                            .ofType(MessageChannel.class)
                                             .flatMap(messageChannel -> {
-
-                                                return messageChannel.createMessage("a game with "+user.getString("username")+" has concluded");
+                                                return messageChannel.createMessage(user + " has concluded a match");
                                             }).subscribe();
 
 
