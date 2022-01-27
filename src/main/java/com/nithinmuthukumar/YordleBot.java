@@ -250,7 +250,7 @@ public class YordleBot {
         rankedUsers = stats.keySet().stream().sorted(Comparator.comparingLong(u->{
             return stats.get(u).get("lastPlayed").longValue();
 
-        })).collect(Collectors.toList());
+        }).reversed()).collect(Collectors.toList());
         embed = EmbedCreateSpec.builder()
                 .color(Color.GRAY)
                 .title("Last Played")
