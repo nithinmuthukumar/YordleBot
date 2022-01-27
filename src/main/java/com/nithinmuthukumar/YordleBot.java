@@ -33,6 +33,31 @@ import static com.mongodb.client.model.Filters.*;
 
 
 public class YordleBot {
+    public static GatewayDiscordClient setupClient(){
+
+        final GatewayDiscordClient client = DiscordClientBuilder.create(System.getenv("discordToken")).build()
+                .login()
+                .block();
+        try {
+            new GlobalCommandRegistrar(client.getRestClient()).registerCommands();
+        } catch (Exception e) {
+            //Handle exception
+        }
+
+        client.getEventDispatcher().on(ReadyEvent.class)
+                .flatMap(ignored -> client.getChannelById(Snowflake.of("888219141478187029")))
+                .ofType(MessageChannel.class)
+                .flatMap((messageChannel)->{
+
+
+                    return messageChannel.createMessage("Cocbot is online!");
+
+                })
+                .subscribe();
+
+        return client;
+
+    }
     public static void main(String[] args) {
         // Replace the uri string with your MongoDB deployment's connection string
         String uri = "mongodb://localhost:27017";
@@ -42,12 +67,6 @@ public class YordleBot {
         MongoCollection<Document> matchCollection = database.getCollection("matches");
         MongoCollection<Document> serverCollection = database.getCollection("servers");
 //        Document doc = collection.find(eq("username", "popoplolj")).first();
-
-
-
-
-
-
         GatewayDiscordClient client = setupClient();
         Flux.interval(Duration.ofMinutes(10))
                 .flatMap(ignore->{
@@ -59,12 +78,10 @@ public class YordleBot {
 
         client.on(ChatInputInteractionEvent.class, event -> {
 
-
-
             try {
                 String mode;
                 List<Document> rankedUsers;
-                Map<Document, Map<String,Double>> stats;
+                Map<Document, Map<String,Number>> stats;
                 EmbedCreateSpec.Builder embed;
 
 
@@ -98,6 +115,23 @@ public class YordleBot {
 
 
                         return event.editReply(String.format("Username was added to leaderboard <@%s> ", snowflake.asString())).then();
+                    case "lastplayed":
+                        event.deferReply().block();
+                        updateData(client,userCollection,matchCollection,serverCollection);
+                        mode = event.getOption("mode")
+                                .flatMap(ApplicationCommandInteractionOption::getValue)
+                                .map(ApplicationCommandInteractionOptionValue::asString).get();
+                        Double amount = Double.parseDouble(event.getOption("amount")
+                                .flatMap(ApplicationCommandInteractionOption::getValue)
+                                .map(ApplicationCommandInteractionOptionValue::getRaw).orElse("1"));
+                        stats = new HashMap<>();
+                        for(Document user: userCollection.find()){
+                            stats.put(user,getStats(amount,user,mode,matchCollection));
+                        }
+                        embed = getLastPlayed(stats, mode,amount);
+                        return event.editReply().withEmbeds(embed.build()).then();
+
+
                     case "games":
                         event.deferReply().block();
 
@@ -111,28 +145,7 @@ public class YordleBot {
                             stats.put(user,getStats(1000,user,mode,matchCollection));
 
                         }
-                        rankedUsers = stats.keySet().stream()
-                                .sorted(Comparator.comparingDouble(u-> -stats.get(u)
-                                        .get("games"))).collect(Collectors.toList());
-                        embed = EmbedCreateSpec.builder()
-                                .color(Color.GRAY)
-                                .title("Leaderboard")
-                                .description(String.format("Games Played"))
-
-                                //.addAllFields(users)
-                                .timestamp(Instant.now());
-
-                        for (int i =0;i<rankedUsers.size();i++) {
-                            Document user = rankedUsers.get(i);
-                            double val=0;
-
-                            embed.addField(String.format("%d. %s: %.0f",i+1,user.getString("username"),
-                                            stats.get(user).get("games")),
-                                    "\u200b", false);
-
-
-
-                        }
+                        embed = getGames(stats);
                         return event.editReply().withEmbeds(embed.build()).then();
 
 
@@ -144,7 +157,7 @@ public class YordleBot {
                                 .flatMap(ApplicationCommandInteractionOption::getValue)
                                 .map(ApplicationCommandInteractionOptionValue::asString).get();
 
-                        Double amount = Double.parseDouble(event.getOption("amount")
+                        amount = Double.parseDouble(event.getOption("amount")
                                 .flatMap(ApplicationCommandInteractionOption::getValue)
                                 .map(ApplicationCommandInteractionOptionValue::getRaw).orElse("-1"));
                         String sortBy = event.getOption("sortby")
@@ -156,56 +169,7 @@ public class YordleBot {
                             stats.put(user,getStats(amount,user,mode,matchCollection));
 
                         }
-                        rankedUsers = stats.keySet().stream().sorted(Comparator.comparingDouble(u->{
-                            switch (sortBy){
-                                case "placement":
-                                    return stats.get(u).get("placement")/stats.get(u).get("games");
-
-                                case "wins":
-                                    return -stats.get(u).get("wins")/stats.get(u).get("games");
-
-
-                            }
-                            return -1;
-
-
-                        })).collect(Collectors.toList());
-
-
-
-
-
-
-
-
-                        embed = EmbedCreateSpec.builder()
-                                .color(Color.GRAY)
-                                .title("Leaderboard")
-                                .description(String.format("Last %d\n%s",amount.intValue(),sortBy))
-
-                                //.addAllFields(users)
-                                .timestamp(Instant.now());
-
-                        for (int i =0;i<rankedUsers.size();i++) {
-                            Document user = rankedUsers.get(i);
-                            double val=0;
-                            if(sortBy.equals("placement")){
-                                val = stats.get(user).get("placement")/stats.get(user).get("games");
-
-
-
-                            }
-                            else if(sortBy.equals("wins")){
-                                val = stats.get(user).get("wins");
-                            }
-                            embed.addField(String.format("%d. %s: %.2f",i+1,user.getString("username"),
-                                            val),
-                                    "\u200b", false);
-
-
-
-                        }
-
+                        embed = getLeaderboard(stats, mode,amount, sortBy);
 
 
                         return event.editReply().withEmbeds(embed.build()).then();
@@ -252,31 +216,106 @@ public class YordleBot {
         client.onDisconnect().block();
 
     }
-    public static GatewayDiscordClient setupClient(){
 
-        final GatewayDiscordClient client = DiscordClientBuilder.create(System.getenv("discordToken")).build()
-                .login()
-                .block();
-        try {
-            new GlobalCommandRegistrar(client.getRestClient()).registerCommands();
-        } catch (Exception e) {
-            //Handle exception
+    private static EmbedCreateSpec.Builder getGames(Map<Document, Map<String, Number>> stats) {
+        List<Document> rankedUsers;
+        EmbedCreateSpec.Builder embed;
+        rankedUsers = stats.keySet().stream()
+                .sorted(Comparator.comparingDouble(u-> -stats.get(u)
+                        .get("games").doubleValue())).collect(Collectors.toList());
+        embed = EmbedCreateSpec.builder()
+                .color(Color.GRAY)
+                .title("Leaderboard")
+                .description(String.format("Games Played"))
+
+                //.addAllFields(users)
+                .timestamp(Instant.now());
+
+        for (int i =0;i<rankedUsers.size();i++) {
+            Document user = rankedUsers.get(i);
+            double val=0;
+
+            embed.addField(String.format("%d. %s: %.0f",i+1,user.getString("username"),
+                            stats.get(user).get("games").doubleValue()),
+                    "\u200b", false);
+
+
+
         }
+        return embed;
+    }
+    private static EmbedCreateSpec.Builder getLastPlayed(Map<Document, Map<String, Number>> stats, String mode, Double amount){
+        List<Document> rankedUsers;
+        EmbedCreateSpec.Builder embed;
+        rankedUsers = stats.keySet().stream().sorted(Comparator.comparingLong(u->{
+            return stats.get(u).get("lastPlayed").longValue();
 
-        client.getEventDispatcher().on(ReadyEvent.class)
-                .flatMap(ignored -> client.getChannelById(Snowflake.of("870826336715964419")))
-                .ofType(MessageChannel.class)
-                .flatMap((messageChannel)->{
+        })).collect(Collectors.toList());
+        embed = EmbedCreateSpec.builder()
+                .color(Color.GRAY)
+                .title("Last Played")
+                .description(String.format("Last %.0f, %s",amount,mode))
+                .timestamp(Instant.now());
+        for(int i =0;i<rankedUsers.size();i++){
+            Document user = rankedUsers.get(i);
+            embed.addField(String.format("%d. %s: %s",i+1,user.getString("username"),
+                    new Date(stats.get(user).get("lastPlayed").longValue())),"\u200b",false);
+        }
+        return embed;
 
-
-                    return messageChannel.createMessage("Cocbot is online!");
-
-                })
-                .subscribe();
-
-        return client;
 
     }
+
+    private static EmbedCreateSpec.Builder getLeaderboard(Map<Document, Map<String, Number>> stats,String mode, Double amount, String sortBy) {
+        List<Document> rankedUsers;
+        EmbedCreateSpec.Builder embed;
+        rankedUsers = stats.keySet().stream().sorted(Comparator.comparingDouble(u->{
+            switch (sortBy){
+                case "placement":
+                    return stats.get(u).get("placement").doubleValue()/ stats.get(u).get("games").doubleValue();
+
+                case "wins":
+                    return -stats.get(u).get("wins").doubleValue()/ stats.get(u).get("games").doubleValue();
+
+
+            }
+            return -1;
+
+
+        })).collect(Collectors.toList());
+
+
+        embed = EmbedCreateSpec.builder()
+                .color(Color.GRAY)
+                .title("Leaderboard")
+                .description(String.format("Last %d\n%s, %s", amount.intValue(), sortBy,mode))
+
+                //.addAllFields(users)
+                .timestamp(Instant.now());
+
+        for (int i =0;i<rankedUsers.size();i++) {
+            Document user = rankedUsers.get(i);
+            double val=0;
+            if(sortBy.equals("placement")){
+                val = stats.get(user).get("placement").doubleValue()/ stats.get(user).get("games").doubleValue();
+
+
+
+            }
+            else if(sortBy.equals("wins")){
+                val = stats.get(user).get("wins").doubleValue()/stats.get(user).get("games").doubleValue();
+            }
+            embed.addField(String.format("%d. %s: %.2f",i+1,user.getString("username"),
+                            val),
+                    "\u200b", false);
+
+
+
+        }
+        return embed;
+    }
+
+
 
     public static void updateData(GatewayDiscordClient client, MongoCollection<Document> userCollection,MongoCollection<Document> matchCollection,MongoCollection<Document> serverCollection){
 
@@ -298,7 +337,7 @@ public class YordleBot {
 
 
                                 for (Document server : serverCollection.find()) {
-                                    //TODO ucomment
+                                    System.out.println(server);
                                     client.getGuildById(Snowflake.of(server.getString("guild_id")))
                                             .map(s -> s.getChannelById(Snowflake.of(server.getString("channel_id"))))
                                             .ofType(MessageChannel.class)
@@ -350,13 +389,14 @@ public class YordleBot {
         }
 
     }
-    public static Map<String,Double> getStats(double amount, Document user, String gameMode, MongoCollection<Document> matchCollection) {
-        Map<String,Double> stats = new HashMap<>();
+    public static Map<String,Number> getStats(double amount, Document user, String gameMode, MongoCollection<Document> matchCollection) {
+        Map<String,Number> stats = new HashMap<>();
 //        List<String> matches = user.getList("match_history",String.class).subList(0,(int)amount);
         List<String> matches = user.getList("match_history",String.class);
         double placementTotal=0;
         double firsts = 0;
         double games = 0;
+        long lastPlayed=0;
 
         for(String matchId: matches){
             Document data = matchCollection.find(eq("match_id",matchId)).first();
@@ -372,7 +412,10 @@ public class YordleBot {
 
 
             for(Document participant:info.getList("participants",Document.class)){
+
                 if(participant.getString("puuid").equals(user.getString("puuid"))){
+                    lastPlayed=info.getLong("game_datetime");
+
 
                     int placement=participant.getInteger("placement");
                     if(placement==1){
@@ -395,6 +438,7 @@ public class YordleBot {
         stats.put("placement",placementTotal);
         stats.put("wins",firsts);
         stats.put("games",games);
+        stats.put("lastPlayed",lastPlayed);
         return stats;
 
     }
