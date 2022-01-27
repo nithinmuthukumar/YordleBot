@@ -11,11 +11,15 @@
       "choices": [
         {
           "name": "doubleup",
-          "value": "pairs"
+          "value": "doubleup"
         },
         {
           "name": "normal",
-          "value": "standard"
+          "value": "normal"
+        },
+        {
+          "name": "ranked",
+          "value": "ranked"
         },
         {
           "name": "all",

@@ -405,10 +405,19 @@ public class YordleBot {
             }
 
             Document info = data.get("info",Document.class);
-            String gameType = info.getString("tft_game_type");
-            if(gameType==null||(!gameMode.equals("all")&&!gameType.equals(gameMode))){
-                continue;
+            int queue_id = info.getInteger("queue_id");
+            if(!gameMode.equals("all")){
+                if(gameMode.equals("doubleup")&&queue_id!=1150){
+                    continue;
+                }else if(gameMode.equals("ranked")&&queue_id!=1100){
+                    continue;
+                }else if(gameMode.equals("normal")&&queue_id!=1090){
+                    continue;
+                }
+
+
             }
+
 
 
             for(Document participant:info.getList("participants",Document.class)){
