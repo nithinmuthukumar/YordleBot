@@ -13,13 +13,19 @@ import java.time.Duration;
 import java.util.ArrayList;
 
 public class RequestHandler {
-    static int timer = 0;
+
     static HttpClient client=HttpClient.create();
 
 
 
     static String riotKey = System.getenv("riotKey") ;
     static Gson gson = new Gson();
+    public static Mono<Document> getRank(String summonerId){
+        return sendRequest("https://na1.api.riotgames.com/tft/league/v1/entries/by-summoner/"+summonerId)
+                .map(json -> {
+                    return Document.parse("{queues:"+json+"}");
+                });
+    }
 
 
 
@@ -77,30 +83,7 @@ public class RequestHandler {
                         return null;
 
                     }
-//                    //Handling rate limits
-//                    String[] appLimits = status.responseHeaders().get("X-App-Rate-Limit-Count").split(",");
-//                    // requests per second
-//                    double sValue = Integer.valueOf(appLimits[0].split(":")[0]);
-//
-//                    // requests per 2 minutes
-//                    double mValue = Integer.valueOf(appLimits[1].split(":")[0]);
-//                    System.out.println("sValue "+sValue);
-//                    System.out.println("mValue "+mValue);
-//
-//                    if(sValue>=18){
-//                        timer = 2;
-//                        System.out.println("Delay");
-//                    }else if(mValue>95){
-//                        timer = 125;
-//                        System.out.println("Delay");
-//                    }else{
-//                        timer = 0;
-//                    }
-
-
-
-
                     return res.asString();
-                }).delayElement(Duration.ofMillis(2000));
+                });
     }
 }

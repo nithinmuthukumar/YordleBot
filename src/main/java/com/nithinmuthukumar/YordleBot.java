@@ -109,7 +109,9 @@ public class YordleBot {
                         userCollection.insertOne(new Document("username", username)
                                 .append("discord_user", snowflake.asString())
                                 .append("match_history", matchIds)
-                                .append("puuid", summoner.getString("puuid")));
+                                .append("puuid", summoner.getString("puuid"))
+                                .append("summonerId",summoner.getString("id")));
+
 
 //
 
@@ -150,6 +152,7 @@ public class YordleBot {
 
 
 
+
                     case "leaderboard":
                         event.deferReply().block();
                         updateData(client, userCollection, matchCollection, serverCollection);
@@ -173,6 +176,24 @@ public class YordleBot {
 
 
                         return event.editReply().withEmbeds(embed.build()).then();
+                    case "ranks":
+                        event.deferReply().block();
+                        embed = EmbedCreateSpec.builder()
+                                .color(Color.GRAY)
+                                .title("Ranks")
+                                //.addAllFields(users)
+                                .timestamp(Instant.now());
+
+                        for(Document user: userCollection.find()){
+                            Document rank = RequestHandler.getRank(user.getString("summonerId")).block();
+                            embed.addField(String.format("%s: %s",user.getString("username"),"doodoowater"),
+
+                                    "\u200b", false);
+
+
+                        }
+                        return event.editReply().withEmbeds(embed.build()).then();
+
 
 
 
@@ -322,10 +343,22 @@ public class YordleBot {
         try{
             for(Document user:userCollection.find()) {
 
+
                 RequestHandler.getMatches(200, user.getString("puuid"))
                     .map(recentMatches->{
+                                for (Document server : serverCollection.find()) {
+                                    System.out.println(server);
+                                    client.getChannelById(Snowflake.of(server.getString("channel_id")))
+                                            .ofType(MessageChannel.class)
+                                            .flatMap(messageChannel -> {
+                                                return messageChannel.createMessage(user + " has concluded a match");
+                                            }).subscribe();
 
-                        List<String> matchHistory = user.getList("match_history", String.class);
+
+                                }
+
+
+                                List<String> matchHistory = user.getList("match_history", String.class);
                         for (String matchId : recentMatches) {
                             if (!matchHistory.contains(matchId)) {
                                 matchHistory.add(matchId);
@@ -335,11 +368,9 @@ public class YordleBot {
                             if (matchCollection.countDocuments(eq("match_id", matchId)) == 0) {
                                 RequestHandler.getMatchData(matchId).map(matchData -> matchCollection.insertOne(matchData)).subscribe();
 
-
                                 for (Document server : serverCollection.find()) {
                                     System.out.println(server);
-                                    client.getGuildById(Snowflake.of(server.getString("guild_id")))
-                                            .map(s -> s.getChannelById(Snowflake.of(server.getString("channel_id"))))
+                                    client.getChannelById(Snowflake.of(server.getString("channel_id")))
                                             .ofType(MessageChannel.class)
                                             .flatMap(messageChannel -> {
                                                 return messageChannel.createMessage(user + " has concluded a match");
