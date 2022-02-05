@@ -346,19 +346,10 @@ public class YordleBot {
 
                 RequestHandler.getMatches(200, user.getString("puuid"))
                     .map(recentMatches->{
-                                for (Document server : serverCollection.find()) {
-                                    System.out.println(server);
-                                    client.getChannelById(Snowflake.of(server.getString("channel_id")))
-                                            .ofType(MessageChannel.class)
-                                            .flatMap(messageChannel -> {
-                                                return messageChannel.createMessage(user + " has concluded a match");
-                                            }).subscribe();
+			    
 
 
-                                }
-
-
-                                List<String> matchHistory = user.getList("match_history", String.class);
+			List<String> matchHistory = user.getList("match_history", String.class);
                         for (String matchId : recentMatches) {
                             if (!matchHistory.contains(matchId)) {
                                 matchHistory.add(matchId);
@@ -368,14 +359,11 @@ public class YordleBot {
                             if (matchCollection.countDocuments(eq("match_id", matchId)) == 0) {
                                 RequestHandler.getMatchData(matchId).map(matchData -> matchCollection.insertOne(matchData)).subscribe();
 
+
                                 for (Document server : serverCollection.find()) {
                                     System.out.println(server);
-                                    client.getChannelById(Snowflake.of(server.getString("channel_id")))
-                                            .ofType(MessageChannel.class)
-                                            .flatMap(messageChannel -> {
-                                                return messageChannel.createMessage(user + " has concluded a match");
-                                            }).subscribe();
-
+				    client.getChannelById(Snowflake.of(server.getString("channel_id"))).ofType(MessageChannel.class)
+					    .flatMap(messageChannel -> messageChannel.createMessage(user.getString("username")+ "has concluded a match")).subscribe();
 
                                 }
                             }
