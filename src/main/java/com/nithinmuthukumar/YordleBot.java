@@ -186,6 +186,7 @@ public class YordleBot {
 
                         for(Document user: userCollection.find()){
                             Document rank = RequestHandler.getRank(user.getString("summonerId")).block();
+                            System.out.println(rank);
                             embed.addField(String.format("%s: %s",user.getString("username"),"doodoowater"),
 
                                     "\u200b", false);
@@ -362,8 +363,28 @@ public class YordleBot {
 
                                 for (Document server : serverCollection.find()) {
                                     System.out.println(server);
-				    client.getChannelById(Snowflake.of(server.getString("channel_id"))).ofType(MessageChannel.class)
-					    .flatMap(messageChannel -> messageChannel.createMessage(user.getString("username")+ "has concluded a match")).subscribe();
+                                    for(Document participant:matchCollection.find(eq("match_id",matchId))
+                                            .first().get("info",Document.class).getList("participants",Document.class)){
+                                        if(participant.getString("puuid").equals(user.getString("puuid"))){
+                                            if(participant.getInteger("placement")==8){
+                                                client.getChannelById(Snowflake.of(server.getString("channel_id"))).ofType(MessageChannel.class)
+                                                        .flatMap(messageChannel -> messageChannel
+                                                                .createMessage(user.getString("username")+
+                                                                        " recently got LAST!! HAHA what a LOSER! https://tenor.com/view/thanos-fortnite-takethel-dance-gif-12100688")).subscribe();
+
+
+                                            }else{
+                                                client.getChannelById(Snowflake.of(server.getString("channel_id"))).ofType(MessageChannel.class)
+                                                        .flatMap(messageChannel -> messageChannel
+                                                                .createMessage(user.getString("username")+ "has concluded a match")).subscribe();
+
+                                            }
+                                        }
+
+
+                                    }
+
+
 
                                 }
                             }
