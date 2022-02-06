@@ -358,35 +358,31 @@ public class YordleBot {
 
                             }
                             if (matchCollection.countDocuments(eq("match_id", matchId)) == 0) {
-                                RequestHandler.getMatchData(matchId).map(matchData -> matchCollection.insertOne(matchData)).subscribe();
+                                RequestHandler.getMatchData(matchId).map(matchData -> {
 
+                                    for (Document server : serverCollection.find()) {
+                                        System.out.println(server);
+                                        for(Document participant:matchData.get("info",Document.class).getList("participants",Document.class)){
+                                            client.getChannelById(Snowflake.of(server.getString("channel_id"))).ofType(MessageChannel.class)
+                                                    .flatMap(messageChannel -> messageChannel
+                                                            .createMessage(user.getString("username")+ "has concluded a match")).subscribe();
+                                            if(participant.getString("puuid").equals(user.getString("puuid"))){
+                                                if(participant.getInteger("placement")==8){
+                                                    client.getChannelById(Snowflake.of(server.getString("channel_id"))).ofType(MessageChannel.class)
+                                                            .flatMap(messageChannel -> messageChannel
+                                                                    .createMessage(user.getString("username")+
+                                                                            " recently got LAST!! HAHA what a LOSER! https://tenor.com/view/thanos-fortnite-takethel-dance-gif-12100688")).subscribe();
 
-                                for (Document server : serverCollection.find()) {
-                                    System.out.println(server);
-                                    for(Document participant:matchCollection.find(eq("match_id",matchId))
-                                            .first().get("info",Document.class).getList("participants",Document.class)){
-                                        if(participant.getString("puuid").equals(user.getString("puuid"))){
-                                            if(participant.getInteger("placement")==8){
-                                                client.getChannelById(Snowflake.of(server.getString("channel_id"))).ofType(MessageChannel.class)
-                                                        .flatMap(messageChannel -> messageChannel
-                                                                .createMessage(user.getString("username")+
-                                                                        " recently got LAST!! HAHA what a LOSER! https://tenor.com/view/thanos-fortnite-takethel-dance-gif-12100688")).subscribe();
-
-
-                                            }else{
-                                                client.getChannelById(Snowflake.of(server.getString("channel_id"))).ofType(MessageChannel.class)
-                                                        .flatMap(messageChannel -> messageChannel
-                                                                .createMessage(user.getString("username")+ "has concluded a match")).subscribe();
-
+                                                }
                                             }
                                         }
-
-
                                     }
+                                    return matchCollection.insertOne(matchData);
+
+                                }).subscribe();
 
 
 
-                                }
                             }
                         }
 
