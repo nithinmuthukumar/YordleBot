@@ -185,11 +185,16 @@ public class YordleBot {
                                 .timestamp(Instant.now());
 
                         for(Document user: userCollection.find()){
-                            Document rank = RequestHandler.getRank(user.getString("summonerId")).block();
-                            System.out.println(rank);
-                            embed.addField(String.format("%s: %s",user.getString("username"),"doodoowater"),
-
-                                    "\u200b", false);
+                            List<Document> ranks = RequestHandler.getRank(user.getString("summonerId")).block().getList("queues",Document.class);
+			    System.out.println(ranks);
+			    for(Document rankedQueue:ranks){
+				    if(rankedQueue.getString("queueType").equals("RANKED_TFT")){
+					    System.out.println(rankedQueue.getString("tier"));
+					    embed.addField(String.format("%s: %s %d LP",user.getString("username"),rankedQueue.getString("tier"),rankedQueue.getInteger("leaguePoints")),"\u200b", false);
+					    
+				    }
+			    }
+			    
 
 
                         }
