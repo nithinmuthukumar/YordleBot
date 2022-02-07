@@ -185,7 +185,8 @@ public class YordleBot {
                                 .timestamp(Instant.now());
 
                         for(Document user: userCollection.find()){
-                            List<Document> ranks = RequestHandler.getRank(user.getString("summonerId")).block().getList("queues",Document.class);
+			    Document sameUser=RequestHandler.getSummoner(user.getString("username")).block();
+                            List<Document> ranks = RequestHandler.getRank(sameUser.getString("id")).block().getList("queues",Document.class);
 			    System.out.println(ranks);
 			    for(Document rankedQueue:ranks){
 				    if(rankedQueue.getString("queueType").equals("RANKED_TFT")){

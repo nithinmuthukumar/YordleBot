@@ -79,6 +79,7 @@ public class RequestHandler {
                     if(!status.status().equals(HttpResponseStatus.OK)){
                         System.out.println(status.status());
                         System.out.println("RateLimited");
+			System.out.println(url);
                         System.out.println(status.responseHeaders());
                         return null;
 
